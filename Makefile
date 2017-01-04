@@ -1,4 +1,4 @@
 .PHONY: build
 
-build: 
-	go build github.com/cloudshare/docker-machine-driver-cloudshare/cloudshare/main/
+build:
+	go build -i -o docker-machine-driver-cloudshare cloudshare/main.go
