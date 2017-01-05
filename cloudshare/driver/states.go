@@ -16,7 +16,7 @@ func ToDockerMachineState(code cs.EnvironmentStatusCode) state.State {
 	case cs.StatusAllocationScheduledNoRun:
 		return state.Starting
 	case cs.StatusSuspended:
-		return state.Paused
+		return state.Stopped
 	case cs.StatusArchived:
 		return state.None
 	case cs.StatusPublishing:

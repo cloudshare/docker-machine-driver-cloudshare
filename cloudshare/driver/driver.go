@@ -398,11 +398,11 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 }
 
 func (d *Driver) Start() error {
-	debug("Start: Driver %+v", *d)
-	return fmt.Errorf("hosts without a driver cannot be started")
+	log.Infof("Resuming environment %s", d.EnvID)
+	return d.getClient().EnvironmentResume(d.EnvID)
 }
 
 func (d *Driver) Stop() error {
-	debug("Stop: Driver %+v", *d)
-	return fmt.Errorf("hosts without a driver cannot be stopped")
+	log.Infof("Suspending environment %s", d.EnvID)
+	return d.getClient().EnvironmentSuspend(d.EnvID)
 }
