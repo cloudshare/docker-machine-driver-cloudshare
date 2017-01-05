@@ -28,7 +28,8 @@ import (
 )
 
 const driverName = "cloudshare"
-const defaultDockerTemplateID = "VMBl4EQ2tgOXR51HZooN9FWA2"
+const docker16Template = "VMBl4EQ2tgOXR51HZooN9FWA2"
+const docker14Template = "VMQ5ZA0uXzxxGyQfYdS5RxaQ2"
 const envCreateTimeoutSeconds = 600
 const miamiRegionID = "REKolD1-ab84YIxODeMGob9A2"
 const defaultUserName = "sysadmin"
@@ -71,7 +72,7 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 		mcnflag.StringFlag{
 			Name:  "cloudshare-vm-template",
 			Usage: "VM Template ID",
-			Value: defaultDockerTemplateID,
+			Value: docker14Template,
 		},
 		mcnflag.StringFlag{
 			Name:   "cloudshare-api-id",
@@ -194,10 +195,10 @@ func (d *Driver) Create() error {
 		return err
 	}
 
-	// TODO: figure out a way to avoid this...
-	if err := d.sshRun("rm -rf /etc/init.d/cloudfolders"); err != nil {
-		return err
-	}
+	// TODO: figure out a way to avoid this on ubuntu 16
+	// if err := d.sshRun("rm -rf /etc/init.d/cloudfolders"); err != nil {
+	// 	return err
+	// }
 
 	return nil
 
