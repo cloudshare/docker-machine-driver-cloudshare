@@ -12,6 +12,10 @@ TODO:
 	- Kill?
 	- Fix reboot
 	- Regenerate
+	- Swarm support
+	- CLI wrapper
+	- Increase/cancel suspension?
+	- Provisionig time
 
 */
 
