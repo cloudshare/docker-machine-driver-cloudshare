@@ -190,7 +190,17 @@ func (d *Driver) Create() error {
 		return err
 	}
 
-	return d.installSSHCertificate()
+	if err := d.installSSHCertificate(); err != nil {
+		return err
+	}
+
+	// TODO: figure out a way to avoid this...
+	if err := d.sshRun("rm -rf /etc/init.d/cloudfolders"); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // DriverName returns the name of the driver
@@ -205,14 +215,18 @@ func (d *Driver) GetIP() (string, error) {
 	return d.Hostname, nil
 }
 
-func sshRun(client *ssh.Client, command string) error {
-	return sessionAction(client, func(session *ssh.Session) error {
+func (d *Driver) sshRun(command string) error {
+	return d.sessionAction(func(session *ssh.Session) error {
 		log.Debugf("Executing SSH: %s", command)
 		return session.Run(command)
 	})
 }
 
-func sessionAction(client *ssh.Client, action func(session *ssh.Session) error) error {
+func (d *Driver) sessionAction(action func(session *ssh.Session) error) error {
+	client, err := d.newSSHClient()
+	if err != nil {
+		return err
+	}
 	session, err := client.NewSession()
 	if err != nil {
 		return err
@@ -222,28 +236,27 @@ func sessionAction(client *ssh.Client, action func(session *ssh.Session) error) 
 	return action(session)
 }
 
-func sshCopy(client *ssh.Client, localFile string, remoteFile string) error {
-	return sessionAction(client, func(session *ssh.Session) error {
+func (d *Driver) sshCopy(localFile string, remoteFile string) error {
+	return d.sessionAction(func(session *ssh.Session) error {
 		return scp.CopyPath(localFile, remoteFile, session)
 	})
 }
 
-func (d *Driver) installSSHCertificate() error {
-	log.Info("Installing SSH certificates on new VM...")
-	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", d.Hostname, defaultSSHPort), &ssh.ClientConfig{
+func (d *Driver) newSSHClient() (*ssh.Client, error) {
+	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", d.Hostname, defaultSSHPort), &ssh.ClientConfig{
 		User: d.SSHUser,
 		Auth: []ssh.AuthMethod{
 			ssh.Password(d.Password),
 		},
 	})
+}
 
-	if err != nil {
-		return err
-	}
+func (d *Driver) installSSHCertificate() error {
+	log.Info("Installing SSH certificates on new VM...")
 	log.Debugf("SSH client created to %s:%s@%s:%d", d.SSHUser, d.Password, d.Hostname, defaultSSHPort)
 
 	log.Debugf("Testing SSH connection")
-	err = sshRun(sshClient, "exit 0")
+	err := d.sshRun("exit 0")
 	if err != nil {
 		log.Errorf("Failed SSH command: %s", err)
 		return err
@@ -256,18 +269,18 @@ func (d *Driver) installSSHCertificate() error {
 
 	log.Debug("Copying public key to remote VM...")
 	pubKeyFile := d.GetSSHKeyPath() + ".pub"
-	if err = sshCopy(sshClient, pubKeyFile, "~/.ssh/authorized_keys"); err != nil {
+	if err = d.sshCopy(pubKeyFile, "~/.ssh/authorized_keys"); err != nil {
 		return err
 	}
 
 	log.Debug("Adding public key to authorized_keys...")
-	if err = sshRun(sshClient, "chmod 600 ~/.ssh/authorized_keys"); err != nil {
+	if err = d.sshRun("chmod 600 ~/.ssh/authorized_keys"); err != nil {
 		return err
 	}
 
 	cmd := fmt.Sprintf("echo '%s' | sudo -S sed -i 's/^%%sudo.*$/%%sudo ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers", d.Password)
 	log.Debug("Granting passwordless sudo access to user...")
-	if err = sshRun(sshClient, cmd); err != nil {
+	if err = d.sshRun(cmd); err != nil {
 		return err
 	}
 
@@ -349,8 +362,8 @@ func (d *Driver) Kill() error {
 }
 
 func (d *Driver) Remove() error {
-	debug("Remove: Driver %+v", *d)
-	return nil
+	log.Infof("Deleting environment %s", d.EnvID)
+	return d.getClient().EnvironmentDelete(d.EnvID)
 }
 
 func (d *Driver) Restart() error {
