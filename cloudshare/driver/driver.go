@@ -378,14 +378,22 @@ func (d *Driver) Restart() error {
 		return err
 	}
 	for {
+		time.Sleep(time.Second * 3)
 		extended := cs.EnvironmentExtended{}
 		err := d.getClient().GetEnvironmentExtended(d.EnvID, &extended)
 		if err != nil {
 			return err
 		}
-		log.Debugf("VM status: %s", extended.Vms[0].StatusText)
-		time.Sleep(time.Second * 3)
+		status := extended.Vms[0].StatusText
+		log.Debugf("VM status: %s", status)
+		if status != "Running" && status != "Rebooting" {
+			return fmt.Errorf("Unexpected VM status: %s", status)
+		}
+		if status == "Running" {
+			break
+		}
 	}
+	log.Info("VM rebooted")
 	return nil
 }
 
