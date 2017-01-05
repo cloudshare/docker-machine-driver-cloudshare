@@ -6,19 +6,25 @@ TODO:
 	- Add project ID support (currently always created in first project of account)
 	- CPU/RAM config
 	- Improve instance state mapping: https://github.com/docker/machine/blob/master/drivers/amazonec2/amazonec2.go#L774
+	- Disable debug printing of password/api-key
+	- Fix cloudfolders issue
+	- Add NOPASSWD: to VM templates
 
 */
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	cs "github.com/cloudshare/go-sdk/cloudshare"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/machine/libmachine/drivers"
+	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
+	dssh "github.com/docker/machine/libmachine/ssh"
 	"github.com/docker/machine/libmachine/state"
+	"github.com/tmc/scp"
+	"golang.org/x/crypto/ssh"
 )
 
 const driverName = "cloudshare"
@@ -26,13 +32,12 @@ const defaultDockerTemplateID = "VMBl4EQ2tgOXR51HZooN9FWA2"
 const envCreateTimeoutSeconds = 600
 const miamiRegionID = "REKolD1-ab84YIxODeMGob9A2"
 const defaultUserName = "sysadmin"
+const defaultSSHPort = 22
 const defaultPort = 2376
 
 func debug(format string, args ...interface{}) {
-	if os.Getenv("DEBUG") != "true" {
-		return
-	}
-	spew.Printf(format+"\n", args...)
+	msg := spew.Sprintf(format+"\n", args...)
+	log.Debug(msg)
 }
 
 // Driver is the driver used when no driver is selected. It is used to
@@ -51,12 +56,13 @@ type Driver struct {
 }
 
 func NewDriver(hostName, storePath string) *Driver {
-	return &Driver{
+	d := &Driver{
 		BaseDriver: &drivers.BaseDriver{
 			MachineName: hostName,
 			StorePath:   storePath,
 		},
 	}
+	return d
 }
 
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
@@ -109,12 +115,14 @@ func getFirstProjectID(c *cs.Client) (*string, error) {
 }
 
 func (d *Driver) createEnv(templateID string, name string) (*string, error) {
+	log.Infof("Creating a new Environment based on the VM template (%s)...", templateID)
 	c := d.getClient()
 
 	projID, apierr := getFirstProjectID(c)
 	if apierr != nil {
 		return nil, apierr
 	}
+	log.Debugf("Project ID: %s", *projID)
 
 	request := cs.EnvironmentTemplateRequest{
 		Environment: cs.Environment{
@@ -130,24 +138,26 @@ func (d *Driver) createEnv(templateID string, name string) (*string, error) {
 			Description:  "Docker-Machine VM",
 		}},
 	}
+	debug("Env create request: %+v", request)
 	envCreateResponse := cs.CreateTemplateEnvResponse{}
 
 	apierr = c.EnvironmentCreateFromTemplate(&request, &envCreateResponse)
 
 	if apierr != nil {
+		log.Errorf("Failed to create env")
 		return nil, apierr
 	}
 
 	envID := envCreateResponse.EnvironmentID
 	d.EnvID = envID
+	log.Infof("CloudShare environment created: %s", d.EnvID)
 
 	return &envID, nil
 }
 
 func (d *Driver) Create() error {
-	debug("Create: Driver %+v", *d)
-
 	envName := formatEnvName(d.BaseDriver.MachineName)
+	log.Debugf("Creating environment %s...", envName)
 	c := d.getClient()
 
 	env, apierr := c.GetEnvironmentByName(envName)
@@ -166,32 +176,102 @@ func (d *Driver) Create() error {
 	d.EnvID = *envID
 
 	// Wait for ready state and set hostname
-	pollSeconds := 5
-	for i := 0; i < envCreateTimeoutSeconds; i += pollSeconds {
-		time.Sleep(time.Second * pollSeconds)
+	log.Info("Waiting for new environment to become Ready...")
+
+	var pollInterval time.Duration = 5
+	for i := time.Duration(5); i < envCreateTimeoutSeconds; i += pollInterval {
+		time.Sleep(time.Second * pollInterval)
 		if err := d.verifyHostnameKnown(); err == nil {
 			break
 		}
+		log.Debugf("Still waiting for hostname...")
 	}
 	if err := d.verifyHostnameKnown(); err != nil {
 		return err
 	}
 
-	return d.verifyHostnameKnown()
+	return d.installSSHCertificate()
 }
 
 // DriverName returns the name of the driver
 func (d *Driver) DriverName() string {
-	debug("DriverName: Driver %+v", *d)
 	return driverName
 }
 
 func (d *Driver) GetIP() (string, error) {
-	debug("GetIP: Driver %+v", *d)
 	if err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
 	return d.Hostname, nil
+}
+
+func sshRun(client *ssh.Client, command string) error {
+	return sessionAction(client, func(session *ssh.Session) error {
+		log.Debugf("Executing SSH: %s", command)
+		return session.Run(command)
+	})
+}
+
+func sessionAction(client *ssh.Client, action func(session *ssh.Session) error) error {
+	session, err := client.NewSession()
+	if err != nil {
+		return err
+	}
+
+	defer session.Close()
+	return action(session)
+}
+
+func sshCopy(client *ssh.Client, localFile string, remoteFile string) error {
+	return sessionAction(client, func(session *ssh.Session) error {
+		return scp.CopyPath(localFile, remoteFile, session)
+	})
+}
+
+func (d *Driver) installSSHCertificate() error {
+	log.Info("Installing SSH certificates on new VM...")
+	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", d.Hostname, defaultSSHPort), &ssh.ClientConfig{
+		User: d.SSHUser,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(d.Password),
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+	log.Debugf("SSH client created to %s:%s@%s:%d", d.SSHUser, d.Password, d.Hostname, defaultSSHPort)
+
+	log.Debugf("Testing SSH connection")
+	err = sshRun(sshClient, "exit 0")
+	if err != nil {
+		log.Errorf("Failed SSH command: %s", err)
+		return err
+	}
+
+	log.Debug("Generating SSH private key...")
+	if err = dssh.GenerateSSHKey(d.GetSSHKeyPath()); err != nil {
+		return err
+	}
+
+	log.Debug("Copying public key to remote VM...")
+	pubKeyFile := d.GetSSHKeyPath() + ".pub"
+	if err = sshCopy(sshClient, pubKeyFile, "~/.ssh/authorized_keys"); err != nil {
+		return err
+	}
+
+	log.Debug("Adding public key to authorized_keys...")
+	if err = sshRun(sshClient, "chmod 600 ~/.ssh/authorized_keys"); err != nil {
+		return err
+	}
+
+	cmd := fmt.Sprintf("echo '%s' | sudo -S sed -i 's/^%%sudo.*$/%%sudo ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers", d.Password)
+	log.Debug("Granting passwordless sudo access to user...")
+	if err = sshRun(sshClient, cmd); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *Driver) GetSSHHostname() (string, error) {
@@ -199,17 +279,8 @@ func (d *Driver) GetSSHHostname() (string, error) {
 	if err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
+
 	return d.Hostname, nil
-}
-
-func (d *Driver) GetSSHKeyPath() string {
-	debug("GetSSHKeyPath: Driver %+v", *d)
-	return ""
-}
-
-func (d *Driver) GetSSHPort() (int, error) {
-	debug("GetSSHPort: Driver %+v", *d)
-	return defaultPort, nil
 }
 
 func (d *Driver) GetSSHUsername() string {
@@ -233,7 +304,7 @@ func (d *Driver) verifyHostnameKnown() error {
 		return err
 	}
 	if status != cs.StatusReady {
-		return fmt.Errorf("Machine not yet in Ready state.")
+		return fmt.Errorf("machine not yet in Ready state")
 	}
 
 	extended := cs.EnvironmentExtended{}
@@ -242,10 +313,11 @@ func (d *Driver) verifyHostnameKnown() error {
 	}
 
 	if len(extended.Vms) < 1 {
-		return fmt.Errorf("Environment contains no VMs")
+		return fmt.Errorf("environment contains no VMs")
 	}
 	d.Hostname = extended.Vms[0].Fqdn
 	d.Password = extended.Vms[0].Password
+	d.SSHUser = defaultUserName
 	return nil
 }
 
@@ -297,7 +369,6 @@ func validateRequired(requiredFlags []string, flags drivers.DriverOptions) error
 }
 
 func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
-	debug("SetConfigFromFlags: Driver %+v\nflags: %+v", *d, flags)
 	templateID := flags.String("cloudshare-vm-template")
 
 	if err := validateRequired([]string{"cloudshare-api-key",
