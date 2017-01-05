@@ -9,6 +9,9 @@ TODO:
 	- Disable debug printing of password/api-key
 	- Fix cloudfolders issue
 	- Add NOPASSWD: to VM templates
+	- Kill?
+	- Fix reboot
+	- Regenerate
 
 */
 
@@ -331,6 +334,7 @@ func (d *Driver) verifyHostnameKnown() error {
 	}
 	d.Hostname = extended.Vms[0].Fqdn
 	d.Password = extended.Vms[0].Password
+	d.VMID = extended.Vms[0].ID
 	d.SSHUser = defaultUserName
 	return nil
 }
@@ -368,8 +372,21 @@ func (d *Driver) Remove() error {
 }
 
 func (d *Driver) Restart() error {
-	debug("Restart: Driver %+v", *d)
-	return fmt.Errorf("hosts without a driver cannot be restarted")
+	log.Infof("Rebooting VM %s...", d.VMID)
+	if err := d.getClient().RebootVM(d.VMID); err != nil {
+		log.Errorf("Error rebooting VM %s: %s", d.VMID, err)
+		return err
+	}
+	for {
+		extended := cs.EnvironmentExtended{}
+		err := d.getClient().GetEnvironmentExtended(d.EnvID, &extended)
+		if err != nil {
+			return err
+		}
+		log.Debugf("VM status: %s", extended.Vms[0].StatusText)
+		time.Sleep(time.Second * 3)
+	}
+	return nil
 }
 
 func validateRequired(requiredFlags []string, flags drivers.DriverOptions) error {
