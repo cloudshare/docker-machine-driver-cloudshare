@@ -5,12 +5,14 @@ TODO:
 	- Add region support (fetch by name, default to Miami)
 	- Add project ID support (currently always created in first project of account)
 	- CPU/RAM config
+	- Improve instance state mapping: https://github.com/docker/machine/blob/master/drivers/amazonec2/amazonec2.go#L774
 
 */
 
 import (
 	"fmt"
 	"os"
+	"time"
 
 	cs "github.com/cloudshare/go-sdk/cloudshare"
 	"github.com/davecgh/go-spew/spew"
@@ -23,6 +25,8 @@ const driverName = "cloudshare"
 const defaultDockerTemplateID = "VMBl4EQ2tgOXR51HZooN9FWA2"
 const envCreateTimeoutSeconds = 600
 const miamiRegionID = "REKolD1-ab84YIxODeMGob9A2"
+const defaultUserName = "sysadmin"
+const defaultPort = 2376
 
 func debug(format string, args ...interface{}) {
 	if os.Getenv("DEBUG") != "true" {
@@ -42,6 +46,8 @@ type Driver struct {
 	APIKey       string
 	RegionID     string
 	EnvID        string
+	Hostname     string
+	Password     string
 }
 
 func NewDriver(hostName, storePath string) *Driver {
@@ -157,8 +163,21 @@ func (d *Driver) Create() error {
 		return apierr
 	}
 
-	d.VMID = *envID
-	return nil
+	d.EnvID = *envID
+
+	// Wait for ready state and set hostname
+	pollSeconds := 5
+	for i := 0; i < envCreateTimeoutSeconds; i += pollSeconds {
+		time.Sleep(time.Second * pollSeconds)
+		if err := d.verifyHostnameKnown(); err == nil {
+			break
+		}
+	}
+	if err := d.verifyHostnameKnown(); err != nil {
+		return err
+	}
+
+	return d.verifyHostnameKnown()
 }
 
 // DriverName returns the name of the driver
@@ -169,12 +188,18 @@ func (d *Driver) DriverName() string {
 
 func (d *Driver) GetIP() (string, error) {
 	debug("GetIP: Driver %+v", *d)
-	return d.IPAddress, nil
+	if err := d.verifyHostnameKnown(); err != nil {
+		return "", err
+	}
+	return d.Hostname, nil
 }
 
 func (d *Driver) GetSSHHostname() (string, error) {
 	debug("GetSSHHostname: Driver %+v", *d)
-	return "", nil
+	if err := d.verifyHostnameKnown(); err != nil {
+		return "", err
+	}
+	return d.Hostname, nil
 }
 
 func (d *Driver) GetSSHKeyPath() string {
@@ -184,18 +209,52 @@ func (d *Driver) GetSSHKeyPath() string {
 
 func (d *Driver) GetSSHPort() (int, error) {
 	debug("GetSSHPort: Driver %+v", *d)
-	return 0, nil
+	return defaultPort, nil
 }
 
 func (d *Driver) GetSSHUsername() string {
 	debug("GetSSHUsername: Driver %+v", *d)
-	return ""
+	return defaultUserName
+}
+
+func (d *Driver) formatURL() string {
+	url := fmt.Sprintf("tcp://%s:2376", d.Hostname)
+	debug(url)
+	return url
+}
+
+func (d *Driver) verifyHostnameKnown() error {
+	if d.Hostname != "" {
+		return nil
+	}
+	status, err := d.getEnvStatus(d.EnvID)
+	if err != nil {
+		debug("failed to fetch env status")
+		return err
+	}
+	if status != cs.StatusReady {
+		return fmt.Errorf("Machine not yet in Ready state.")
+	}
+
+	extended := cs.EnvironmentExtended{}
+	if err = d.getClient().GetEnvironmentExtended(d.EnvID, &extended); err != nil {
+		return err
+	}
+
+	if len(extended.Vms) < 1 {
+		return fmt.Errorf("Environment contains no VMs")
+	}
+	d.Hostname = extended.Vms[0].Fqdn
+	d.Password = extended.Vms[0].Password
+	return nil
 }
 
 func (d *Driver) GetURL() (string, error) {
-	// TODO: find env by name, fetch vm public DNs
 	debug("GetURL: Driver %+v", *d)
-	return "no url yet", nil
+	if err := d.verifyHostnameKnown(); err != nil {
+		return "", err
+	}
+	return d.formatURL(), nil
 }
 
 func (d *Driver) getEnvStatus(envID string) (cs.EnvironmentStatusCode, error) {
