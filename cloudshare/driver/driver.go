@@ -44,6 +44,7 @@ const defaultUserName = "sysadmin"
 const defaultSSHPort = 22
 const defaultPort = 2376
 
+// You can grab this map from api/v3/regions, but since regions change not very frequently there's no reason to execute this API call each time we create a machine...
 var regions map[string]string = map[string]string{
 	"Miami":            "REKolD1-ab84YIxODeMGob9A2",
 	"VMware_Singapore": "RE0YOUV7_lTmgb0X8D1UjM3g2",
@@ -290,12 +291,6 @@ func (d *Driver) installSSHCertificate() error {
 
 	log.Debug("Adding public key to authorized_keys...")
 	if err = d.sshRun("chmod 600 ~/.ssh/authorized_keys"); err != nil {
-		return err
-	}
-
-	cmd := fmt.Sprintf("echo '%s' | sudo -S sed -i 's/^%%sudo.*$/%%sudo ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers", d.Password)
-	log.Debug("Granting passwordless sudo access to user...")
-	if err = d.sshRun(cmd); err != nil {
 		return err
 	}
 
