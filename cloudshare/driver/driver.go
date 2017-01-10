@@ -16,6 +16,7 @@ TODO:
 	- CLI wrapper
 	- Increase/cancel suspension?
 	- Provisionig time
+	- Publish and install
 
 */
 
@@ -38,10 +39,16 @@ const driverName = "cloudshare"
 const docker16Template = "VMBl4EQ2tgOXR51HZooN9FWA2"
 const docker14Template = "VMQ5ZA0uXzxxGyQfYdS5RxaQ2"
 const envCreateTimeoutSeconds = 600
-const miamiRegionID = "REKolD1-ab84YIxODeMGob9A2"
+const defaultRegion = "Miami"
 const defaultUserName = "sysadmin"
 const defaultSSHPort = 22
 const defaultPort = 2376
+
+var regions map[string]string = map[string]string{
+	"Miami":            "REKolD1-ab84YIxODeMGob9A2",
+	"VMware_Singapore": "RE0YOUV7_lTmgb0X8D1UjM3g2",
+	"VMWare_Amsterdam": "RE6OEZs-y-mkK1mEMGwIgZiw2",
+}
 
 func debug(format string, args ...interface{}) {
 	msg := spew.Sprintf(format+"\n", args...)
@@ -92,9 +99,9 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "CLOUDSHARE_API_KEY",
 		},
 		mcnflag.StringFlag{
-			Name:  "cloudshare-region-id",
-			Usage: "CloudShare region ID",
-			Value: miamiRegionID,
+			Name:  "cloudshare-region-name",
+			Usage: "CloudShare region name",
+			Value: "Miami",
 		},
 	}
 }
@@ -415,14 +422,14 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	templateID := flags.String("cloudshare-vm-template")
 
 	if err := validateRequired([]string{"cloudshare-api-key",
-		"cloudshare-api-id", "cloudshare-region-id"}, flags); err != nil {
+		"cloudshare-api-id", "cloudshare-region-name"}, flags); err != nil {
 		return err
 	}
 
 	d.VMTemplateID = templateID
 	d.APIID = flags.String("cloudshare-api-id")
 	d.APIKey = flags.String("cloudshare-api-key")
-	d.RegionID = flags.String("cloudshare-region-id")
+	d.RegionID = regions[flags.String("cloudshare-region-name")]
 	return nil
 }
 
