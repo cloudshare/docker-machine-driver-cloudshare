@@ -13,8 +13,6 @@ TODO:
 	- Swarm support
 	- Increase/cancel suspension?
 	- Provisionig time
-	- Publish and install
-	- README
 */
 
 import (
@@ -366,7 +364,7 @@ func (d *Driver) GetState() (state state.State, err error) {
 
 func (d *Driver) Kill() error {
 	debug("Kill: Driver %+v", *d)
-	return fmt.Errorf("hosts without a driver cannot be killed")
+	return fmt.Errorf("Kill is not supported for CloudShare docker machines. You can stop, rm or restart.")
 }
 
 func (d *Driver) Remove() error {
