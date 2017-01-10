@@ -12,7 +12,7 @@ current_dir := $(shell pwd)
 
 build:
 	mkdir -p dist
-	go build -o $(base) $(main)
+	go build -o dist/$(base) $(main)
 
 package: $(PLATFORMS)
 
