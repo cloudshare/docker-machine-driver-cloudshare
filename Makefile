@@ -3,15 +3,25 @@ PLATFORMS := linux/amd64 darwin/amd64 linux/386 darwin/386
 temp = $(subst /, ,$@)
 os = $(word 1, $(temp))
 arch = $(word 2, $(temp))
-
-main = cloudshare/main.go
+base := docker-machine-driver-cloudshare
+out_dir = dist/$(os)/$(arch)
+out_file = $(out_dir)/$(base)
+main := cloudshare/main.go
+current_dir := $(shell pwd)
 
 build:
-	go build -o docker-machine-driver-cloudshare $(main)
+	mkdir -p dist
+	go build -o $(base) $(main)
 
 release: $(PLATFORMS)
 
 $(PLATFORMS):
-	GOOS=$(os) GOARCH=$(arch) go build -o 'docker-machine-driver-cloudshare_$(os)-$(arch)' $(main)
+	mkdir -p dist
+	GOOS=$(os) GOARCH=$(arch) go build -o $(out_file) $(main)
+	cd $(out_dir); tar czf $(current_dir)/dist/$(base)_$(arch)-$(os).tar.gz $(base)
 
-.PHONY: release $(PLATFORMS)
+
+clean: 
+	rm -rf dist
+
+.PHONY: release $(PLATFORMS) build clean
