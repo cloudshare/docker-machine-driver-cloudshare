@@ -4,10 +4,8 @@ package driver
 TODO:
 	- Add project ID support (currently always created in first project of account)
 	- CPU/RAM config
-	- Fix cloudfolders issue
-	- Add NOPASSWD: to VM templates
-	- Swarm support
-	- Increase/cancel suspension?
+	- Fix cloudfolders issue in Ubuntu 16.04
+	- Postpone suspension when containers are running.
 */
 
 import (
