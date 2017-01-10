@@ -10,14 +10,10 @@ TODO:
 	- Fix cloudfolders issue
 	- Add NOPASSWD: to VM templates
 	- Kill?
-	- Fix reboot
-	- Regenerate
 	- Swarm support
-	- CLI wrapper
 	- Increase/cancel suspension?
 	- Provisionig time
 	- Publish and install
-
 */
 
 import (
@@ -45,7 +41,7 @@ const defaultSSHPort = 22
 const defaultPort = 2376
 
 // You can grab this map from api/v3/regions, but since regions change not very frequently there's no reason to execute this API call each time we create a machine...
-var regions map[string]string = map[string]string{
+var regions = map[string]string{
 	"Miami":            "REKolD1-ab84YIxODeMGob9A2",
 	"VMware_Singapore": "RE0YOUV7_lTmgb0X8D1UjM3g2",
 	"VMWare_Amsterdam": "RE6OEZs-y-mkK1mEMGwIgZiw2",
