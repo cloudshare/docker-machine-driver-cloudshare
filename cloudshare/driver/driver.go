@@ -2,17 +2,12 @@ package driver
 
 /*
 TODO:
-	- Add region support (fetch by name, default to Miami)
 	- Add project ID support (currently always created in first project of account)
 	- CPU/RAM config
-	- Improve instance state mapping: https://github.com/docker/machine/blob/master/drivers/amazonec2/amazonec2.go#L774
-	- Disable debug printing of password/api-key
 	- Fix cloudfolders issue
 	- Add NOPASSWD: to VM templates
-	- Kill?
 	- Swarm support
 	- Increase/cancel suspension?
-	- Provisionig time
 */
 
 import (
@@ -20,7 +15,6 @@ import (
 	"time"
 
 	cs "github.com/cloudshare/go-sdk/cloudshare"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
@@ -44,11 +38,6 @@ var regions = map[string]string{
 	"Miami":            "REKolD1-ab84YIxODeMGob9A2",
 	"VMware_Singapore": "RE0YOUV7_lTmgb0X8D1UjM3g2",
 	"VMWare_Amsterdam": "RE6OEZs-y-mkK1mEMGwIgZiw2",
-}
-
-func debug(format string, args ...interface{}) {
-	msg := spew.Sprintf(format+"\n", args...)
-	log.Debug(msg)
 }
 
 // Driver is the driver used when no driver is selected. It is used to
@@ -77,7 +66,6 @@ func NewDriver(hostName, storePath string) *Driver {
 }
 
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
-	debug("GetCreateFlags: %+v", *d)
 	return []mcnflag.Flag{
 		mcnflag.StringFlag{
 			Name:  "cloudshare-vm-template",
@@ -149,7 +137,6 @@ func (d *Driver) createEnv(templateID string, name string) (*string, error) {
 			Description:  "Docker-Machine VM",
 		}},
 	}
-	debug("Env create request: %+v", request)
 	envCreateResponse := cs.CreateTemplateEnvResponse{}
 
 	apierr = c.EnvironmentCreateFromTemplate(&request, &envCreateResponse)
@@ -293,7 +280,6 @@ func (d *Driver) installSSHCertificate() error {
 }
 
 func (d *Driver) GetSSHHostname() (string, error) {
-	debug("GetSSHHostname: Driver %+v", *d)
 	if err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
@@ -302,13 +288,11 @@ func (d *Driver) GetSSHHostname() (string, error) {
 }
 
 func (d *Driver) GetSSHUsername() string {
-	debug("GetSSHUsername: Driver %+v", *d)
 	return defaultUserName
 }
 
 func (d *Driver) formatURL() string {
 	url := fmt.Sprintf("tcp://%s:2376", d.Hostname)
-	debug(url)
 	return url
 }
 
@@ -318,7 +302,6 @@ func (d *Driver) verifyHostnameKnown() error {
 	}
 	status, err := d.getEnvStatus(d.EnvID)
 	if err != nil {
-		debug("failed to fetch env status")
 		return err
 	}
 	if status != cs.StatusReady {
@@ -341,7 +324,6 @@ func (d *Driver) verifyHostnameKnown() error {
 }
 
 func (d *Driver) GetURL() (string, error) {
-	debug("GetURL: Driver %+v", *d)
 	if err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
@@ -355,16 +337,13 @@ func (d *Driver) getEnvStatus(envID string) (cs.EnvironmentStatusCode, error) {
 }
 
 func (d *Driver) GetState() (state state.State, err error) {
-	debug("GetState: Driver %+v", *d)
 	status, err := d.getEnvStatus(d.EnvID)
 	state = ToDockerMachineState(status)
-	debug("Current state: %d = %d", status, state)
 	return
 }
 
 func (d *Driver) Kill() error {
-	debug("Kill: Driver %+v", *d)
-	return fmt.Errorf("Kill is not supported for CloudShare docker machines. You can stop, rm or restart.")
+	return fmt.Errorf("kill is not supported for CloudShare docker machines. You can stop, rm or restart")
 }
 
 func (d *Driver) Remove() error {

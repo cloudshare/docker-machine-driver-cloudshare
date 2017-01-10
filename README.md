@@ -17,7 +17,7 @@ docker run busy-box echo "Look at me, I'm running on CloudShare"
 
 ### More help
 
-Run `docker-machin create -d cloudshare --help` to see all the options.
+Run `docker-machine create -d cloudshare --help` to see all the options.
 
 Make sure you have the CloudShare driver installed first.
 
