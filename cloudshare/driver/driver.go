@@ -15,11 +15,7 @@ import (
 	cs "github.com/cloudshare/go-sdk/cloudshare"
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/log"
-	"github.com/docker/machine/libmachine/mcnflag"
-	dssh "github.com/docker/machine/libmachine/ssh"
 	"github.com/docker/machine/libmachine/state"
-	"github.com/tmc/scp"
-	"golang.org/x/crypto/ssh"
 )
 
 const driverName = "cloudshare"
@@ -61,31 +57,6 @@ func NewDriver(hostName, storePath string) *Driver {
 		},
 	}
 	return d
-}
-
-func (d *Driver) GetCreateFlags() []mcnflag.Flag {
-	return []mcnflag.Flag{
-		mcnflag.StringFlag{
-			Name:  "cloudshare-vm-template",
-			Usage: "VM Template ID",
-			Value: docker14Template,
-		},
-		mcnflag.StringFlag{
-			Name:   "cloudshare-api-id",
-			Usage:  "CloudShare API ID (required)",
-			EnvVar: "CLOUDSHARE_API_ID",
-		},
-		mcnflag.StringFlag{
-			Name:   "cloudshare-api-key",
-			Usage:  "CloudShare API KEY (required)",
-			EnvVar: "CLOUDSHARE_API_KEY",
-		},
-		mcnflag.StringFlag{
-			Name:  "cloudshare-region-name",
-			Usage: "CloudShare region name",
-			Value: "Miami",
-		},
-	}
 }
 
 func formatEnvName(machineName string) string {
@@ -190,13 +161,7 @@ func (d *Driver) Create() error {
 		return err
 	}
 
-	// TODO: figure out a way to avoid this on ubuntu 16
-	// if err := d.sshRun("rm -rf /etc/init.d/cloudfolders"); err != nil {
-	// 	return err
-	// }
-
 	return nil
-
 }
 
 // DriverName returns the name of the driver
@@ -209,84 +174,6 @@ func (d *Driver) GetIP() (string, error) {
 		return "", err
 	}
 	return d.Hostname, nil
-}
-
-func (d *Driver) sshRun(command string) error {
-	return d.sessionAction(func(session *ssh.Session) error {
-		log.Debugf("Executing SSH: %s", command)
-		return session.Run(command)
-	})
-}
-
-func (d *Driver) sessionAction(action func(session *ssh.Session) error) error {
-	client, err := d.newSSHClient()
-	if err != nil {
-		return err
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return err
-	}
-
-	defer session.Close()
-	return action(session)
-}
-
-func (d *Driver) sshCopy(localFile string, remoteFile string) error {
-	return d.sessionAction(func(session *ssh.Session) error {
-		return scp.CopyPath(localFile, remoteFile, session)
-	})
-}
-
-func (d *Driver) newSSHClient() (*ssh.Client, error) {
-	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", d.Hostname, defaultSSHPort), &ssh.ClientConfig{
-		User: d.SSHUser,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(d.Password),
-		},
-	})
-}
-
-func (d *Driver) installSSHCertificate() error {
-	log.Info("Installing SSH certificates on new VM...")
-	log.Debugf("SSH client created to %s:%s@%s:%d", d.SSHUser, d.Password, d.Hostname, defaultSSHPort)
-
-	log.Debugf("Testing SSH connection")
-	err := d.sshRun("exit 0")
-	if err != nil {
-		log.Errorf("Failed SSH command: %s", err)
-		return err
-	}
-
-	log.Debug("Generating SSH private key...")
-	if err = dssh.GenerateSSHKey(d.GetSSHKeyPath()); err != nil {
-		return err
-	}
-
-	log.Debug("Copying public key to remote VM...")
-	pubKeyFile := d.GetSSHKeyPath() + ".pub"
-	if err = d.sshCopy(pubKeyFile, "~/.ssh/authorized_keys"); err != nil {
-		return err
-	}
-
-	log.Debug("Adding public key to authorized_keys...")
-	if err = d.sshRun("chmod 600 ~/.ssh/authorized_keys"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (d *Driver) GetSSHHostname() (string, error) {
-	if err := d.verifyHostnameKnown(); err != nil {
-		return "", err
-	}
-
-	return d.Hostname, nil
-}
-
-func (d *Driver) GetSSHUsername() string {
-	return defaultUserName
 }
 
 func (d *Driver) formatURL() string {
@@ -372,31 +259,6 @@ func (d *Driver) Restart() error {
 		}
 	}
 	log.Info("VM rebooted")
-	return nil
-}
-
-func validateRequired(requiredFlags []string, flags drivers.DriverOptions) error {
-	for _, req := range requiredFlags {
-		value := flags.String(req)
-		if value == "" {
-			return fmt.Errorf("%s is a required field", req)
-		}
-	}
-	return nil
-}
-
-func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
-	templateID := flags.String("cloudshare-vm-template")
-
-	if err := validateRequired([]string{"cloudshare-api-key",
-		"cloudshare-api-id", "cloudshare-region-name"}, flags); err != nil {
-		return err
-	}
-
-	d.VMTemplateID = templateID
-	d.APIID = flags.String("cloudshare-api-id")
-	d.APIKey = flags.String("cloudshare-api-key")
-	d.RegionID = regions[flags.String("cloudshare-region-name")]
 	return nil
 }
 
