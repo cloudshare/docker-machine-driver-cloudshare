@@ -67,6 +67,7 @@ func (d *Driver) getClient() *cs.Client {
 	return &cs.Client{
 		APIKey: d.APIKey,
 		APIID:  d.APIID,
+		Tags:   "docker-machine-driver",
 	}
 }
 
