@@ -1,9 +1,10 @@
 package driver
 
-import "fmt"
-import "github.com/docker/machine/libmachine/mcnflag"
-
-import "github.com/docker/machine/libmachine/drivers"
+import (
+	"fmt"
+	"github.com/docker/machine/libmachine/drivers"
+	"github.com/docker/machine/libmachine/mcnflag"
+)
 
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 	return []mcnflag.Flag{
