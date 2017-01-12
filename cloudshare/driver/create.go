@@ -47,6 +47,67 @@ func (d *Driver) createEnv(templateID string, name string) (*string, error) {
 	return &envID, nil
 }
 
+func (d *Driver) adjustHW() error {
+	c := d.getClient()
+
+	extended := cs.EnvironmentExtended{}
+	if err := c.GetEnvironmentExtended(d.EnvID, &extended); err != nil {
+		return err
+	}
+
+	request := cs.EditVMHardwareRequest{
+		VMID: d.VMID,
+	}
+
+	currentCPUs := extended.Vms[0].CPUCount
+	if currentCPUs != d.CPUs {
+		log.Infof("Adjusting number of CPUs from %d to %d", currentCPUs, d.CPUs)
+		request.NumCPUs = d.CPUs
+	}
+
+	currentRAM := extended.Vms[0].MemorySizeMB
+	if currentRAM != d.MemorySizeMB {
+		log.Infof("Adjusting VM memory from %d MBs to %d MBs", currentRAM, d.MemorySizeMB)
+		request.MemorySizeMBs = d.MemorySizeMB
+	}
+
+	currentDisk := extended.Vms[0].DiskSizeGB
+	if currentDisk != d.DiskSizeGB {
+		if d.DiskSizeGB < currentDisk {
+			return fmt.Errorf("Requested disk size cannot be smaller than %d GBs", currentDisk)
+		}
+		log.Infof("Adjusting disk size from %d GBs to %d GBs", currentDisk, d.DiskSizeGB)
+		request.DiskSizeGBs = d.DiskSizeGB
+	}
+
+	response := cs.EditVMHardwareResponse{}
+	if err := c.EditVMHardware(request, &response); err != nil {
+		return err
+	}
+
+	log.Info("Waiting for adjusted VM to become ready...")
+	if err := d.waitForReady(envAdjustTimeoutSeconds); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Driver) waitForReady(timeoutSeconds time.Duration) error {
+
+	var pollInterval time.Duration = 10
+	for i := pollInterval; i < timeoutSeconds; i += pollInterval {
+		time.Sleep(time.Second * pollInterval)
+		if _, err := d.verifyHostnameKnown(); err != nil {
+			log.Debugf("Still waiting for env to be ready... %v", err)
+		} else {
+			break
+		}
+
+	}
+	return nil
+}
+
 func (d *Driver) Create() error {
 	envName := formatEnvName(d.BaseDriver.MachineName)
 	log.Debugf("Creating environment %s...", envName)
@@ -69,16 +130,15 @@ func (d *Driver) Create() error {
 
 	// Wait for ready state and set hostname
 	log.Info("Waiting for new environment to become Ready...")
-
-	var pollInterval time.Duration = 5
-	for i := time.Duration(5); i < envCreateTimeoutSeconds; i += pollInterval {
-		time.Sleep(time.Second * pollInterval)
-		if err := d.verifyHostnameKnown(); err == nil {
-			break
-		}
-		log.Debugf("Still waiting for hostname...")
+	if err := d.waitForReady(envCreateTimeoutSeconds); err != nil {
+		return err
 	}
-	if err := d.verifyHostnameKnown(); err != nil {
+
+	if _, err := d.verifyHostnameKnown(); err != nil {
+		return err
+	}
+
+	if err := d.adjustHW(); err != nil {
 		return err
 	}
 

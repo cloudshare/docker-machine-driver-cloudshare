@@ -63,7 +63,7 @@ func (d *Driver) installSSHCertificate() error {
 }
 
 func (d *Driver) GetSSHHostname() (string, error) {
-	if err := d.verifyHostnameKnown(); err != nil {
+	if _, err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
 

@@ -28,6 +28,21 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Usage: "CloudShare region name",
 			Value: "Miami",
 		},
+		mcnflag.IntFlag{
+			Name:  "cloudshare-disk-gb",
+			Usage: "Disk size (GB), >=10GB",
+			Value: 10,
+		},
+		mcnflag.IntFlag{
+			Name:  "cloudshare-cpus",
+			Usage: "CPU count",
+			Value: 1,
+		},
+		mcnflag.IntFlag{
+			Name:  "cloudshare-ram-mb",
+			Usage: "RAM (MBs) 256-32768",
+			Value: 2048,
+		},
 	}
 }
 
@@ -53,5 +68,8 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.APIID = flags.String("cloudshare-api-id")
 	d.APIKey = flags.String("cloudshare-api-key")
 	d.RegionID = regions[flags.String("cloudshare-region-name")]
+	d.CPUs = flags.Int("cloudshare-cpus")
+	d.MemorySizeMB = flags.Int("cloudshare-ram-mb")
+	d.DiskSizeGB = flags.Int("cloudshare-disk-gb")
 	return nil
 }

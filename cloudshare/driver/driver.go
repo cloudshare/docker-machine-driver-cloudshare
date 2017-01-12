@@ -21,7 +21,8 @@ import (
 const driverName = "cloudshare"
 const docker16Template = "VMBl4EQ2tgOXR51HZooN9FWA2"
 const docker14Template = "VMQ5ZA0uXzxxGyQfYdS5RxaQ2"
-const envCreateTimeoutSeconds = 600
+const envCreateTimeoutSeconds = 300
+const envAdjustTimeoutSeconds = 600
 const defaultRegion = "Miami"
 const defaultUserName = "sysadmin"
 const defaultSSHPort = 22
@@ -47,6 +48,9 @@ type Driver struct {
 	EnvID        string
 	Hostname     string
 	Password     string
+	CPUs         int
+	MemorySizeMB int
+	DiskSizeGB   int
 }
 
 func NewDriver(hostName, storePath string) *Driver {
@@ -89,7 +93,7 @@ func (d *Driver) DriverName() string {
 }
 
 func (d *Driver) GetIP() (string, error) {
-	if err := d.verifyHostnameKnown(); err != nil {
+	if _, err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
 	return d.Hostname, nil
@@ -100,35 +104,35 @@ func (d *Driver) formatURL() string {
 	return url
 }
 
-func (d *Driver) verifyHostnameKnown() error {
-	if d.Hostname != "" {
-		return nil
-	}
-	status, err := d.getEnvStatus(d.EnvID)
-	if err != nil {
-		return err
-	}
-	if status != cs.StatusReady {
-		return fmt.Errorf("machine not yet in Ready state")
+func (d *Driver) verifyHostnameKnown() (*cs.EnvironmentExtended, error) {
+	extended := cs.EnvironmentExtended{}
+	if err := d.getClient().GetEnvironmentExtended(d.EnvID, &extended); err != nil {
+		return nil, err
 	}
 
-	extended := cs.EnvironmentExtended{}
-	if err = d.getClient().GetEnvironmentExtended(d.EnvID, &extended); err != nil {
-		return err
+	if extended.StatusCode != cs.StatusReady {
+		return nil, fmt.Errorf("env status %s. Waiting for Running", extended.StatusText)
 	}
 
 	if len(extended.Vms) < 1 {
-		return fmt.Errorf("environment contains no VMs")
+		return &extended, fmt.Errorf("environment contains no VMs")
 	}
-	d.Hostname = extended.Vms[0].Fqdn
-	d.Password = extended.Vms[0].Password
-	d.VMID = extended.Vms[0].ID
-	d.SSHUser = defaultUserName
-	return nil
+
+	log.Debugf("VM state: %s", extended.Vms[0].StatusText)
+	if extended.Vms[0].StatusText != "Running" {
+		return &extended, fmt.Errorf("VM not yet running. Current state: %s", extended.Vms[0].StatusText)
+	}
+	if d.Hostname == "" {
+		d.Hostname = extended.Vms[0].Fqdn
+		d.Password = extended.Vms[0].Password
+		d.VMID = extended.Vms[0].ID
+		d.SSHUser = defaultUserName
+	}
+	return &extended, nil
 }
 
 func (d *Driver) GetURL() (string, error) {
-	if err := d.verifyHostnameKnown(); err != nil {
+	if _, err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
 	return d.formatURL(), nil
