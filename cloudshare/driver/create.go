@@ -60,15 +60,18 @@ func (d *Driver) adjustHW() error {
 	}
 
 	currentCPUs := extended.Vms[0].CPUCount
+	anyMods := false
 	if currentCPUs != d.CPUs {
 		log.Infof("Adjusting number of CPUs from %d to %d", currentCPUs, d.CPUs)
 		request.NumCPUs = d.CPUs
+		anyMods = true
 	}
 
 	currentRAM := extended.Vms[0].MemorySizeMB
 	if currentRAM != d.MemorySizeMB {
 		log.Infof("Adjusting VM memory from %d MBs to %d MBs", currentRAM, d.MemorySizeMB)
 		request.MemorySizeMBs = d.MemorySizeMB
+		anyMods = true
 	}
 
 	currentDisk := extended.Vms[0].DiskSizeGB
@@ -78,16 +81,19 @@ func (d *Driver) adjustHW() error {
 		}
 		log.Infof("Adjusting disk size from %d GBs to %d GBs", currentDisk, d.DiskSizeGB)
 		request.DiskSizeGBs = d.DiskSizeGB
+		anyMods = true
 	}
 
-	response := cs.EditVMHardwareResponse{}
-	if err := c.EditVMHardware(request, &response); err != nil {
-		return err
-	}
+	if anyMods {
+		response := cs.EditVMHardwareResponse{}
+		if err := c.EditVMHardware(request, &response); err != nil {
+			return err
+		}
 
-	log.Info("Waiting for adjusted VM to become ready...")
-	if err := d.waitForReady(envAdjustTimeoutSeconds); err != nil {
-		return err
+		log.Info("Waiting for adjusted VM to become ready...")
+		if err := d.waitForReady(envAdjustTimeoutSeconds); err != nil {
+			return err
+		}
 	}
 
 	return nil
