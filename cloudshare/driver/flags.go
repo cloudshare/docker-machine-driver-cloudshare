@@ -9,8 +9,12 @@ import (
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 	return []mcnflag.Flag{
 		mcnflag.StringFlag{
-			Name:  "cloudshare-vm-template",
+			Name:  "cloudshare-vm-template-id",
 			Usage: "VM Template ID",
+		},
+		mcnflag.StringFlag{
+			Name:  "cloudshare-vm-template-name",
+			Usage: "VM Template name (exact name; cannot be used with --cloudshare-vm-template-id)",
 			Value: docker14Template,
 		},
 		mcnflag.StringFlag{
@@ -57,14 +61,20 @@ func validateRequired(requiredFlags []string, flags drivers.DriverOptions) error
 }
 
 func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
-	templateID := flags.String("cloudshare-vm-template")
 
 	if err := validateRequired([]string{"cloudshare-api-key",
 		"cloudshare-api-id", "cloudshare-region-name"}, flags); err != nil {
 		return err
 	}
 
+	templateID := flags.String("cloudshare-vm-template-id")
+	templateName := flags.String("cloudshare-vm-template-name")
+	if templateID == "" && templateName == "" {
+		return fmt.Errorf("either cloudshare-vm-template-id or cloudshare-vm-template-name must be specified")
+	}
+
 	d.VMTemplateID = templateID
+	d.VMTemplateName = templateName
 	d.APIID = flags.String("cloudshare-api-id")
 	d.APIKey = flags.String("cloudshare-api-key")
 	d.RegionID = regions[flags.String("cloudshare-region-name")]

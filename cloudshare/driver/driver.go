@@ -19,8 +19,8 @@ import (
 )
 
 const driverName = "cloudshare"
-const docker16Template = "VMBl4EQ2tgOXR51HZooN9FWA2"
-const docker14Template = "VMQ5ZA0uXzxxGyQfYdS5RxaQ2"
+const docker16Template = "Docker - Ubuntu 16.04 Server"
+const docker14Template = "Docker - Ubuntu 14.04 Server"
 const envCreateTimeoutSeconds = 300
 const envAdjustTimeoutSeconds = 600
 const defaultRegion = "Miami"
@@ -40,17 +40,18 @@ var regions = map[string]string{
 // an option.
 type Driver struct {
 	*drivers.BaseDriver
-	VMTemplateID string
-	VMID         string
-	APIID        string
-	APIKey       string
-	RegionID     string
-	EnvID        string
-	Hostname     string
-	Password     string
-	CPUs         int
-	MemorySizeMB int
-	DiskSizeGB   int
+	VMTemplateID   string
+	VMTemplateName string
+	VMID           string
+	APIID          string
+	APIKey         string
+	RegionID       string
+	EnvID          string
+	Hostname       string
+	Password       string
+	CPUs           int
+	MemorySizeMB   int
+	DiskSizeGB     int
 }
 
 func NewDriver(hostName, storePath string) *Driver {

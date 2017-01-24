@@ -114,6 +114,24 @@ func (d *Driver) waitForReady(timeoutSeconds time.Duration) error {
 	return nil
 }
 
+func (d *Driver) resolveTemplateID() (string, error) {
+	log.Debugf("Searching for template with name %s...", d.VMTemplateName)
+	c := d.getClient()
+	templParams := cs.GetTemplateParams{
+		TemplateType: "1",
+	}
+	templates := []cs.VMTemplate{}
+	if err := c.GetTemplates(&templParams, &templates); err != nil {
+		return "", err
+	}
+	for _, template := range templates {
+		if template.Name == d.VMTemplateName {
+			return template.ID, nil
+		}
+	}
+	return "", fmt.Errorf("template with name '%s' not found", d.VMTemplateName)
+}
+
 func (d *Driver) Create() error {
 	envName := formatEnvName(d.BaseDriver.MachineName)
 	log.Debugf("Creating environment %s...", envName)
@@ -127,6 +145,14 @@ func (d *Driver) Create() error {
 	if env != nil {
 		return fmt.Errorf("Docker-Machine enviroment already exists for '%s': %s", d.BaseDriver.MachineName, env.URL())
 	}
+
+	if d.VMTemplateID == "" {
+		d.VMTemplateID, apierr = d.resolveTemplateID()
+		if apierr != nil {
+			return apierr
+		}
+	}
+
 	envID, apierr := d.createEnv(d.VMTemplateID, envName)
 	if apierr != nil {
 		return apierr
