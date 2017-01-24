@@ -22,7 +22,7 @@ $(PLATFORMS):
 	cd $(out_dir); tar czf $(current_dir)/dist/$(base)_$(arch)-$(os).tar.gz $(base)
 
 upload: package
-	github-release cloudshare/docker-machine-driver-cloudshare $(TAG) master 'CloudShare Docker-Machine Driver' 'dist/*.gz'
+	github-release cloudshare/docker-machine-driver-cloudshare $(TAG) master '' 'dist/*.gz'
 
 clean:
 	rm -rf dist
