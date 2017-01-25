@@ -20,7 +20,7 @@ import (
 
 const driverName = "cloudshare"
 const docker16Template = "Docker - Ubuntu 16.04 Server"
-const docker14Template = "Docker - Ubuntu 14.04 Server"
+const docker14Template = "Docker - Ubuntu 14.04 Server - SMALL"
 const envCreateTimeoutSeconds = 300
 const envAdjustTimeoutSeconds = 600
 const defaultRegion = "Miami"
@@ -106,6 +106,10 @@ func (d *Driver) formatURL() string {
 }
 
 func (d *Driver) verifyHostnameKnown() (*cs.EnvironmentExtended, error) {
+	if d.EnvID == "" {
+		return nil, fmt.Errorf("Environment ID not yet configured. Is the machine still being created?")
+	}
+
 	extended := cs.EnvironmentExtended{}
 	if err := d.getClient().GetEnvironmentExtended(d.EnvID, &extended); err != nil {
 		return nil, err

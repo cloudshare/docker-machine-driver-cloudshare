@@ -36,8 +36,8 @@ func (d *Driver) installSSHCertificate() error {
 	log.Info("Installing SSH certificates on new VM...")
 	log.Debugf("SSH client created to %s:%s@%s:%d", d.SSHUser, d.Password, d.Hostname, defaultSSHPort)
 
-	log.Debugf("Testing SSH connection")
-	err := d.sshRun("exit 0")
+	log.Debugf("Creating .ssh dir...")
+	err := d.sshRun("mkdir -p ~/.ssh && chmod 700 ~/.ssh")
 	if err != nil {
 		log.Errorf("Failed SSH command: %s", err)
 		return err
