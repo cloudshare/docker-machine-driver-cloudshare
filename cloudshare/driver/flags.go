@@ -35,17 +35,14 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 		mcnflag.IntFlag{
 			Name:  "cloudshare-disk-gb",
 			Usage: "Disk size (GB), >=10GB",
-			Value: 10,
 		},
 		mcnflag.IntFlag{
 			Name:  "cloudshare-cpus",
 			Usage: "CPU count",
-			Value: 1,
 		},
 		mcnflag.IntFlag{
 			Name:  "cloudshare-ram-mb",
 			Usage: "RAM (MBs) 256-32768",
-			Value: 2048,
 		},
 	}
 }

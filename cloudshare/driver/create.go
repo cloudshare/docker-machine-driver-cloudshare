@@ -61,21 +61,21 @@ func (d *Driver) adjustHW() error {
 
 	currentCPUs := extended.Vms[0].CPUCount
 	anyMods := false
-	if currentCPUs != d.CPUs {
+	if d.CPUs != 0 && currentCPUs != d.CPUs {
 		log.Infof("Adjusting number of CPUs from %d to %d", currentCPUs, d.CPUs)
 		request.NumCPUs = d.CPUs
 		anyMods = true
 	}
 
 	currentRAM := extended.Vms[0].MemorySizeMB
-	if currentRAM != d.MemorySizeMB {
+	if d.MemorySizeMB != 0 && currentRAM != d.MemorySizeMB {
 		log.Infof("Adjusting VM memory from %d MBs to %d MBs", currentRAM, d.MemorySizeMB)
 		request.MemorySizeMBs = d.MemorySizeMB
 		anyMods = true
 	}
 
 	currentDisk := extended.Vms[0].DiskSizeGB
-	if currentDisk != d.DiskSizeGB {
+	if d.DiskSizeGB != 0 && currentDisk != d.DiskSizeGB {
 		if d.DiskSizeGB < currentDisk {
 			return fmt.Errorf("Requested disk size cannot be smaller than %d GBs", currentDisk)
 		}
