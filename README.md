@@ -55,6 +55,14 @@ Make sure you have the CloudShare driver installed first.
 - Grab the [latest release](https://github.com/cloudshare/docker-machine-driver-cloudshare/releases) binary for your OS
 - Untar
 - Make sure the `docker-machine-driver-cloudshare` executable is in your `PATH`.
+    - On Linux (64 bit) the following bash script will do the above for you:
+```
+export LATEST=$(curl -s -L https://api.github.com/repos/cloudshare/docker-machine-driver-cloudshare/releases/latest | grep tag_name | grep -E "[.0-9]+" -o) && \
+    curl -s -L https://github.com/cloudshare/docker-machine-driver-cloudshare/releases/download/${LATEST}/docker-machine-driver-cloudshare_amd64-linux.tar.gz -o /tmp/docker-machine-driver-cloudshare.tar.gz && \
+    cd /tmp && tar xf /tmp/docker-machine-driver-cloudshare.tar.gz && \
+    mv /tmp/docker-machine-driver-cloudshare /usr/local/bin/ && \
+    chmod +x /usr/local/bin/docker-machine-driver-cloudshare
+```
 - Grab your API ID and Key from your [user details page](https://use.cloudshare.com/Ent/Vendor/UserDetails.aspx)
     - Define them as environment variables: `CLOUDSHARE_API_KEY` and `CLOUDSHARE_API_ID`.
     - You can also pass them directly to `docker-machine` with these options:
