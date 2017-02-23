@@ -7,6 +7,41 @@ import (
 	"time"
 )
 
+func (d *Driver) verifyPolicyExists(projID string, expiryDays int, policyID *string) error {
+	policyName := fmt.Sprintf("docker-machine-policy-delete-after-%d-days", expiryDays)
+	log.Debugf("Searching for existing policy '%s'", policyName)
+	c := d.getClient()
+	existingPolicies := []cs.Policy{}
+	if apierr := c.GetPolicies(projID, &existingPolicies); apierr != nil {
+		return apierr
+	}
+	for _, existingPolicy := range existingPolicies {
+		if existingPolicy.Name == policyName {
+			*policyID = existingPolicy.ID
+			log.Debug("Policy found, no need to create one.")
+			return nil
+		}
+	}
+
+	request := cs.PolicyRequest{
+		Name:                                 policyName,
+		ProjectID:                            projID,
+		RunTimeTotalMinutes:                  expiryDays * 24 * 60,
+		DiskTimeTotalMinutes:                 expiryDays * 24 * 60,
+		AutoAction:                           "SuspendTheEnvironment",
+		AutoActionThresholdMinutesForSuspend: 15,
+	}
+
+	response := cs.PolicyCreationResponse{}
+	log.Debugf("Creating new policy with spec %+v", request)
+	if apierr := c.CreateProjectPolicy(request, &response); apierr != nil {
+		return apierr
+	}
+	*policyID = response.ID
+	log.Debugf("Policy created (id: %s)", policyID)
+	return nil
+}
+
 func (d *Driver) createEnv(templateID string, name string) (*string, error) {
 	log.Infof("Creating a new Environment based on the VM template (%s)...", templateID)
 	c := d.getClient()
@@ -25,13 +60,27 @@ func (d *Driver) createEnv(templateID string, name string) (*string, error) {
 
 	log.Debugf("Project ID: %s", projID)
 
+	var policyID string
+	if d.ExpiryDays != 0 {
+		if apierr := d.verifyPolicyExists(projID, d.ExpiryDays, &policyID); apierr != nil {
+			return nil, apierr
+		}
+	}
+
+	env := cs.Environment{
+		Name:        name,
+		Description: "Docker-Machine Environment",
+		ProjectID:   projID,
+		RegionID:    d.RegionID,
+		PolicyID:    policyID,
+	}
+
+	if policyID != "" {
+		env.PolicyID = policyID
+	}
+
 	request := cs.EnvironmentTemplateRequest{
-		Environment: cs.Environment{
-			Name:        name,
-			Description: "Docker-Machine Environment",
-			ProjectID:   projID,
-			RegionID:    d.RegionID,
-		},
+		Environment: env,
 		ItemsCart: []cs.VM{{
 			Type:         2,
 			Name:         "docker-machine",
