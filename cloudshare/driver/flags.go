@@ -37,6 +37,14 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Usage: "Disk size (GB), >=10GB",
 		},
 		mcnflag.IntFlag{
+			Name:  "cloudshare-vm-expiry-days",
+			Usage: "How long before VM expires. If not passed default policy is used.",
+		},
+		mcnflag.StringFlag{
+			Name:  "cloudshare-project-id",
+			Usage: "Project ID",
+		},
+		mcnflag.IntFlag{
 			Name:  "cloudshare-cpus",
 			Usage: "CPU count",
 		},
@@ -78,5 +86,7 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.CPUs = flags.Int("cloudshare-cpus")
 	d.MemorySizeMB = flags.Int("cloudshare-ram-mb")
 	d.DiskSizeGB = flags.Int("cloudshare-disk-gb")
+	d.ExpiryDays = flags.Int("cloudshare-vm-expiry-days")
+	d.ProjectID = flags.String("cloudshare-project-id")
 	return nil
 }

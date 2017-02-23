@@ -11,17 +11,25 @@ func (d *Driver) createEnv(templateID string, name string) (*string, error) {
 	log.Infof("Creating a new Environment based on the VM template (%s)...", templateID)
 	c := d.getClient()
 
-	projID, apierr := getFirstProjectID(c)
-	if apierr != nil {
-		return nil, apierr
+	projID := d.ProjectID
+	var apierr error
+
+	if projID == "" {
+		log.Debugf("Project ID not specified. Querying for account's first project.")
+		id, apierr := getFirstProjectID(c)
+		if apierr != nil {
+			return nil, apierr
+		}
+		projID = *id
 	}
-	log.Debugf("Project ID: %s", *projID)
+
+	log.Debugf("Project ID: %s", projID)
 
 	request := cs.EnvironmentTemplateRequest{
 		Environment: cs.Environment{
 			Name:        name,
 			Description: "Docker-Machine Environment",
-			ProjectID:   *projID,
+			ProjectID:   projID,
 			RegionID:    d.RegionID,
 		},
 		ItemsCart: []cs.VM{{

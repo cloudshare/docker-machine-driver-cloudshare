@@ -1,13 +1,5 @@
 package driver
 
-/*
-TODO:
-	- Add project ID support (currently always created in first project of account)
-	- CPU/RAM config
-	- Fix cloudfolders issue in Ubuntu 16.04
-	- Postpone suspension when containers are running.
-*/
-
 import (
 	"fmt"
 	"time"
@@ -40,18 +32,22 @@ var regions = map[string]string{
 // an option.
 type Driver struct {
 	*drivers.BaseDriver
-	VMTemplateID   string
-	VMTemplateName string
-	VMID           string
+
+	CPUs         int
+	DiskSizeGB   int
+	ExpiryDays   int
+	MemorySizeMB int
+
 	APIID          string
 	APIKey         string
-	RegionID       string
 	EnvID          string
 	Hostname       string
 	Password       string
-	CPUs           int
-	MemorySizeMB   int
-	DiskSizeGB     int
+	ProjectID      string
+	RegionID       string
+	VMID           string
+	VMTemplateID   string
+	VMTemplateName string
 }
 
 func NewDriver(hostName, storePath string) *Driver {
