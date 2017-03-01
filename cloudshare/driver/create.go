@@ -24,12 +24,12 @@ func (d *Driver) verifyPolicyExists(projID string, expiryDays int, policyID *str
 	}
 
 	request := cs.PolicyRequest{
-		Name:                                 policyName,
-		ProjectID:                            projID,
-		RunTimeTotalMinutes:                  expiryDays * 24 * 60,
-		DiskTimeTotalMinutes:                 expiryDays * 24 * 60,
-		AutoAction:                           "SuspendTheEnvironment",
-		AutoActionThresholdMinutesForSuspend: 15,
+		Name:                    policyName,
+		ProjectID:               projID,
+		RuntimeLeaseMinutes:     expiryDays * 24 * 60, // minutes in day
+		StorageLeaseMinutes:     expiryDays * 24 * 60,
+		InactivityHandlingType:  "SuspendTheEnvironment",
+		InactivityThresholdTime: 15,
 	}
 
 	response := cs.PolicyCreationResponse{}
@@ -72,7 +72,6 @@ func (d *Driver) createEnv(templateID string, name string) (*string, error) {
 		Description: "Docker-Machine Environment",
 		ProjectID:   projID,
 		RegionID:    d.RegionID,
-		PolicyID:    policyID,
 	}
 
 	if policyID != "" {
