@@ -90,6 +90,10 @@ func (d *Driver) DriverName() string {
 }
 
 func (d *Driver) GetIP() (string, error) {
+	if d.Hostname != "" {
+		return d.Hostname, nil
+	}
+
 	if _, err := d.verifyHostnameKnown(); err != nil {
 		return "", err
 	}
