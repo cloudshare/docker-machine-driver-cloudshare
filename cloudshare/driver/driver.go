@@ -137,14 +137,17 @@ func (d *Driver) verifyHostnameKnown() (*cs.EnvironmentExtended, error) {
 }
 
 func (d *Driver) GetURL() (string, error) {
-	if _, err := d.verifyHostnameKnown(); err != nil {
-		return "", err
+	if d.Hostname == "" {
+		if _, err := d.verifyHostnameKnown(); err != nil {
+			return "", err
+		}
 	}
 	return d.formatURL(), nil
 }
 
 func (d *Driver) getEnvStatus(envID string) (cs.EnvironmentStatusCode, error) {
 	env := cs.EnvironmentExtended{}
+	log.Debugf("Querying state of environment %s", envID)
 	err := d.getClient().GetEnvironmentExtended(envID, &env)
 	return env.StatusCode, err
 }
