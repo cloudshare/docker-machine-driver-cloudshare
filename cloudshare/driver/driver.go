@@ -137,25 +137,21 @@ func (d *Driver) verifyHostnameKnown() (*cs.EnvironmentExtended, error) {
 }
 
 func (d *Driver) GetURL() (string, error) {
-	if d.Hostname == "" {
-		if _, err := d.verifyHostnameKnown(); err != nil {
-			return "", err
-		}
+	if _, err := d.verifyHostnameKnown(); err != nil {
+		return "", err
 	}
 	return d.formatURL(), nil
 }
 
 func (d *Driver) getEnvStatus(envID string) (cs.EnvironmentStatusCode, error) {
 	env := cs.EnvironmentExtended{}
-	log.Debugf("Querying state of environment %s", envID)
 	err := d.getClient().GetEnvironmentExtended(envID, &env)
 	return env.StatusCode, err
 }
 
 func (d *Driver) GetState() (state state.State, err error) {
 	status, err := d.getEnvStatus(d.EnvID)
-	state = ToDockerMachineState(status)
-	return
+	return ToDockerMachineState(status), err
 }
 
 func (d *Driver) Kill() error {
