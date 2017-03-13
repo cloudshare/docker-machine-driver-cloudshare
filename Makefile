@@ -1,9 +1,10 @@
-PLATFORMS := linux/amd64 darwin/amd64 linux/386 darwin/386
+PLATFORMS := linux/amd64 darwin/amd64 linux/386 darwin/386 windows/amd64/.exe windows/386/.exe
 
 temp = $(subst /, ,$@)
 os = $(word 1, $(temp))
 arch = $(word 2, $(temp))
-base := docker-machine-driver-cloudshare
+ext = $(word 3, $(temp))
+base = docker-machine-driver-cloudshare$(ext)
 out_dir = dist/$(os)/$(arch)
 out_file = $(out_dir)/$(base)
 main := cloudshare/main.go
@@ -15,6 +16,8 @@ build:
 	go build -o dist/$(base) $(main)
 
 package: $(PLATFORMS)
+
+windows: windows/386/.exe windows/amd64/.exe
 
 $(PLATFORMS):
 	mkdir -p dist
